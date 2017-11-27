@@ -13,9 +13,12 @@
 #include <unistd.h>
 #include<pthread.h>
 
+#include <unistd.h>
+#include <fcntl.h>
+
 #define PORT 8888
 
-enum CONSTEXPR { MAX_REQUEST_LEN = 1024};
+enum CONSTEXPR { MAX_REQUEST_LEN = 4096};
 
 void *connection_handler(void *);
 
@@ -76,6 +79,7 @@ void *connection_handler(void *workload)
 	sockaddr_in.sin_family = AF_INET;
 	sockaddr_in.sin_port = htons(server_port);
 
+	memset(request, 0, 4096);
 
 	strcpy(request, (char*)workload);			/* SET_REQUEST LOAD */
 
@@ -93,7 +97,7 @@ void *connection_handler(void *workload)
 	}
 
 	/* Send the request. */					
-	/*nbytes_total = 0;
+	nbytes_total = 0;
 	while (nbytes_total < request_len) {
 		nbytes_last = write(socket_file_descriptor, request + nbytes_total, request_len - nbytes_total);
 		if (nbytes_last == -1) {
@@ -101,24 +105,35 @@ void *connection_handler(void *workload)
 		    exit(EXIT_FAILURE);
 		}
 		nbytes_total += nbytes_last;
-	}*/
-
-	int x = write(socket_file_descriptor, request, request_len);
-
-	int flag = 1;
-
-	setsockopt(socket_file_descriptor, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int));
-
-	printf("am trimis: %d\n", x);
-
-	//shutdown(socket_file_descriptor, SHUT_WR);
-
-	while ((nbytes_total = read(socket_file_descriptor, buffer, BUFSIZ)) > 0) 
-	{
-		printf("got bytes: %d\n", nbytes_total);
-		write(STDOUT_FILENO, buffer, nbytes_total);
 	}
-			
+
+	printf("avem len: %d\n", request_len);
+
+	if(request_len > 5)
+	{
+		char filename[100];
+
+		strcpy(filename, "Content/");
+		strcat(filename, request);
+
+		int file_fd = open(filename, O_WRONLY | O_CREAT, 0777);
+
+		while ((nbytes_total = read(socket_file_descriptor, buffer, BUFSIZ)) > 0) 
+		{
+			write(file_fd, buffer, nbytes_total);
+		}
+
+		close(file_fd);	
+	}
+	else
+	{
+		while ((nbytes_total = read(socket_file_descriptor, buffer, BUFSIZ)) > 0) 
+		{
+			printf("got bytes: %d\n", nbytes_total);
+			write(STDOUT_FILENO, buffer, nbytes_total);
+		}
+	}
+		
   	close(socket_file_descriptor);
 }
 
@@ -126,15 +141,32 @@ int main(int argc, char** argv)
 {
     int i = 0;
     int socket_desc , client_sock;
-
     char req[] = "0";
-    char *workloads[] = {"1000", "1000", "1000", "1000"};
+
+    char *cpu_workloads[] = {"1000", "1000", "1000", "1500", "1500", "1500", "1500", "1500"};
+
+    char *io_workloads[] = {"test_file1.html", "test_file2.html", "test_file3.html", "test_file4.html", "test_file5.html"};
+
+    /*char *io_workloads[101];
+
+    char base_file_name[] = "test_file";
+
+    char number[12];
+
+    for(i = 1; i <= 100; i++)
+    {
+	io_workloads[i] = (char*)malloc(50 * sizeof(char));
+	strcpy(io_workloads[i], base_file_name);
+	sprintf(number, "%d", i);
+	strcat(io_workloads[i], number);
+	strcat(io_workloads[i], ".html");
+    }*/
 
     pthread_t thread_id;
 
-    for(i = 0; i < 4; i++)
+    for(i = 0; i < 2; i++)
     {
-	    if( pthread_create( &thread_id , NULL ,  connection_handler , (void*)(workloads[i])) < 0)
+	    if( pthread_create( &thread_id , NULL ,  connection_handler , (void*)(io_workloads[i])) < 0)
 	    {
 		  perror("could not create thread");
 		  return 1;

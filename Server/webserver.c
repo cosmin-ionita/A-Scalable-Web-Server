@@ -11,12 +11,23 @@
 #include<arpa/inet.h> 	//inet_addr
 #include<unistd.h>    	//write
 #include<pthread.h> 	//for threading , link with lpthread
+
+
+#include <fcntl.h>
+
+#include <sys/stat.h>
+#include <sys/types.h>
+
  
 //the thread function
 void *connection_handler(void *);
  
 pthread_mutex_t lock;
 int parallel_clients = 0;
+
+
+int named_pipe_fd;
+char *named_pipe_name = "/tmp/web_clients";
 
 
 void matrixMultiplication(int sizeOfMatrix) {
@@ -50,6 +61,12 @@ int main(int argc , char *argv[])
 {
     int socket_desc , client_sock , c;
     struct sockaddr_in server , client;
+
+    /* We will use this named pipe to pass the parallel clients count to the cpu analyzer*/
+    mkfifo(named_pipe_name, 0666);
+
+    named_pipe_fd = open(named_pipe_name, O_WRONLY);
+
 
     /* This mutex is needed for parallel clients atomicity */
     pthread_mutex_init(&lock, NULL);
@@ -91,26 +108,31 @@ int main(int argc , char *argv[])
 
     pthread_t thread_id;
 
-    while( (client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c)) )
+    int client_socks[100000];
+
+    int i = 0;
+
+    while( (client_socks[i] = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c)) )
     {
 
-	/* Critical section */
+	/*_____LOCK_IN_____*/
 	pthread_mutex_lock(&lock);
 
-		parallel_clients += 1;
-		printf("Parallel clients: %d\n", parallel_clients);
+	parallel_clients += 1;
+
+	write(named_pipe_fd, &parallel_clients, sizeof(int));
 
 	pthread_mutex_unlock(&lock);
-         
-        if( pthread_create( &thread_id , NULL ,  connection_handler , (void*) &client_sock) < 0)
+
+	/*_____LOCK_OUT_____*/
+
+        if( pthread_create( &thread_id , NULL ,  connection_handler , (void*) &(client_socks[i])) < 0)
         {
             perror("could not create thread");
             return 1;
         }
-         
-        //Now join the thread , so that we dont terminate before the thread
-        //pthread_join( thread_id , NULL);
-        puts("Handler assigned");
+ 
+	i++;
     }
      
     if (client_sock < 0)
@@ -130,54 +152,57 @@ void *connection_handler(void *socket_desc)
     //Get the socket descriptor
     int sock = *(int*)socket_desc;
     int read_size;
-    char *message , client_message[2000];
+    char filename[100];
 
-    //setsockopt(sock, SOL_SOCKET, SO_RCVBUF, (int[]){12}, sizeof(int));
-     
-    //Receive a message from client
-    while( (read_size = recv(sock , client_message , 4 , 0)) > 0 )
+    char *message , client_message[4096];
+
+    while( (read_size = recv(sock , client_message , 4096 , 0)) > 0 )
     {
 	client_message[read_size] = '\0';
 
-	printf("Received from client: %s\n", client_message);
-
-	if(strlen(client_message) < 5) /* We have a CPU intensive request */
+	if(strlen(client_message) < 5) 
 	{	
 		int matrix_size = atoi(client_message);
 
 		matrixMultiplication(matrix_size);
 
-		//Send the message back to client
 		write(sock , client_message , strlen(client_message));
 		
-		//clear the message buffer
-		memset(client_message, 0, 2000);
+		memset(client_message, 0, 4096);
 
 		shutdown(sock, SHUT_RDWR);
 	}
-	else 			 	/* We have an I/O intensive request */
+	else 			 	
 	{
+		strcpy(filename, "Content/");
+		strcat(filename, client_message);
 
+		int file_fd = open(filename, O_RDONLY);
+		int read_bytes = 0;
+	
+		char buffer[100];
+
+		while( (read_bytes = read(file_fd, buffer, 100)) > 0 )
+		{
+			write(sock , buffer , read_bytes);
+		}
+
+		sleep(10);
+
+		close(file_fd);
+
+		shutdown(sock, SHUT_RDWR);
 	}
     }
-     
-    if(read_size == 0)
-    {
-        puts("Client disconnected");
-        fflush(stdout);
-    }
 
-    else if(read_size == -1)
-    {
-        perror("recv failed");
-    }
+    /*________LOCK_IN__________*/
+    pthread_mutex_lock(&lock);
 
-	pthread_mutex_lock(&lock);
+    parallel_clients -= 1;
+    write(named_pipe_fd, &parallel_clients, sizeof(int));
 
-	parallel_clients -= 1;
-	printf("Parallel clients: %d\n", parallel_clients);
+    pthread_mutex_unlock(&lock);
+    /*________LOCK_OUT__________*/
 
-	pthread_mutex_unlock(&lock);
-         
     return 0;
 } 

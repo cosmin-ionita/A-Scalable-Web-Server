@@ -6,19 +6,24 @@
 	processed using pthreads (for fiability purposes).
 */
 
-#include<stdio.h>
-#include<string.h>    	
-#include<stdlib.h>    	
-#include<sys/socket.h>
-#include<arpa/inet.h> 
-#include<unistd.h>   
-#include<pthread.h>
+#include <stdio.h>
+#include <string.h>    	
+#include <stdlib.h>    	
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <arpa/inet.h> 
+#include <unistd.h>   
+#include <pthread.h>
 
+#include <mpi.h>
 
 #include <fcntl.h>
 
-#include <sys/stat.h>
-#include <sys/types.h>
+/* Those variables refer only to MPI context */
+
+int process_count; 	/* The total number of MPI processes*/
+int process_id;		/* The id of the current MPI process */
 
  
 /* The thread function */
@@ -65,6 +70,18 @@ void matrixMultiplication(int sizeOfMatrix)
 
 }
 
+void InitializeMPIContext()
+{
+    /* Initialize the MPI environment */
+    MPI_Init(NULL, NULL);
+
+    /* Get the number of processes */
+    MPI_Comm_size(MPI_COMM_WORLD, &process_count);
+
+    /* Get the rank of the current process */
+    MPI_Comm_rank(MPI_COMM_WORLD, &process_id);
+}
+
 int main(int argc , char *argv[])
 {
     
@@ -73,6 +90,10 @@ int main(int argc , char *argv[])
     struct sockaddr_in server , client;
 
     pthread_t thread_id;
+
+    /* Create the MPI environment */	
+    InitializeMPIContext();
+
 
     /* We will use this named pipe to pass the parallel clients count to the cpu analyzer*/
     mkfifo(named_pipe_name, 0666);
@@ -144,6 +165,9 @@ int main(int argc , char *argv[])
         perror("accept failed");
         return 1;
     }
+
+
+    MPI_Finalize();
      
     return 0;
 }

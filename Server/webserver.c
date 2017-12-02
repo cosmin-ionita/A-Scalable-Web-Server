@@ -1,16 +1,18 @@
 /*
-    C socket server example, handles multiple clients using threads
-    Compile
-    gcc server.c -lpthread -o server
+	This is a scalable implementation of a webserver that simulates
+	an I/O intensive and a CPU intensive workload.
+
+	The server scales horizontally using MPI and each request is 
+	processed using pthreads (for fiability purposes).
 */
- 
+
 #include<stdio.h>
-#include<string.h>    	//strlen
-#include<stdlib.h>    	//strlen
+#include<string.h>    	
+#include<stdlib.h>    	
 #include<sys/socket.h>
-#include<arpa/inet.h> 	//inet_addr
-#include<unistd.h>    	//write
-#include<pthread.h> 	//for threading , link with lpthread
+#include<arpa/inet.h> 
+#include<unistd.h>   
+#include<pthread.h>
 
 
 #include <fcntl.h>
@@ -19,30 +21,35 @@
 #include <sys/types.h>
 
  
-//the thread function
+/* The thread function */
 void *connection_handler(void *);
  
+/* Parallel clients count with the associated lock */
 pthread_mutex_t lock;
 int parallel_clients = 0;
 
-
+/* Named pipe to send the parallel clients count */
 int named_pipe_fd;
 char *named_pipe_name = "/tmp/web_clients";
 
-
-void matrixMultiplication(int sizeOfMatrix) {
+/* CPU intensive load */
+void matrixMultiplication(int sizeOfMatrix) 
+{
 	int i, j, k;
 	int **A = (int **)malloc(sizeOfMatrix * sizeof(int *));
 	int **B = (int **)malloc(sizeOfMatrix * sizeof(int *));
 	int **C = (int **)malloc(sizeOfMatrix * sizeof(int *));
-	for (i = 0; i < sizeOfMatrix; i++) {
+	for (i = 0; i < sizeOfMatrix; i++) 
+	{
 		A[i] = (int *)malloc(sizeOfMatrix * sizeof(int));
 		B[i] = (int *)malloc(sizeOfMatrix * sizeof(int));
 		C[i] = (int *)malloc(sizeOfMatrix * sizeof(int));
 	}
 
-	for (i = 0; i < sizeOfMatrix; i++) {
-		for (j = 0; j < sizeOfMatrix; j++) {
+	for (i = 0; i < sizeOfMatrix; i++) 
+	{
+		for (j = 0; j < sizeOfMatrix; j++) 
+		{
 			A[i][j] = rand() % 30;
 			B[i][j] = rand() % 30;
 			C[i][j] = 0;
@@ -51,7 +58,8 @@ void matrixMultiplication(int sizeOfMatrix) {
 	
 	for(i = 0; i < sizeOfMatrix; i++)
 		for(j = 0; j < sizeOfMatrix; j++)
-		    for(k = 0; k < sizeOfMatrix; k++) {
+		    for(k = 0; k < sizeOfMatrix; k++) 
+		    {
 		        C[i][j] += A[i][k] * B[k][j];
 		    }
 
@@ -59,19 +67,24 @@ void matrixMultiplication(int sizeOfMatrix) {
 
 int main(int argc , char *argv[])
 {
-    int socket_desc , client_sock , c;
+    
+    int client_socks[100000];
+    int socket_desc , client_sock , c, i;
     struct sockaddr_in server , client;
+
+    pthread_t thread_id;
 
     /* We will use this named pipe to pass the parallel clients count to the cpu analyzer*/
     mkfifo(named_pipe_name, 0666);
 
+    printf("Waiting for the other end of the named pipe...");
     named_pipe_fd = open(named_pipe_name, O_WRONLY);
 
 
     /* This mutex is needed for parallel clients atomicity */
     pthread_mutex_init(&lock, NULL);
 
-    //Create socket
+    /* Create socket */
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
     if (socket_desc == -1)
     {
@@ -80,41 +93,32 @@ int main(int argc , char *argv[])
 
     puts("Socket created");
      
-    //Prepare the sockaddr_in structure
+    /* Prepare the sockaddr_in structure */
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port = htons( 8888 );
 	
-    //Bind
+    /* Bind */
     if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
     {
-        //print the error message
         perror("bind failed. Error");
         return 1;
     }
+
     puts("bind done");
      
-    //Listen
+    /* Listen */
     listen(socket_desc , 3);
      
-    //Accept and incoming connection
     puts("Waiting for incoming connections...");
     c = sizeof(struct sockaddr_in);
-     
-     
-    //Accept and incoming connection
+   
     puts("Waiting for incoming connections...");
     c = sizeof(struct sockaddr_in);
 
-    pthread_t thread_id;
-
-    int client_socks[100000];
-
-    int i = 0;
-
+  
     while( (client_socks[i] = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c)) )
     {
-
 	/*_____LOCK_IN_____*/
 	pthread_mutex_lock(&lock);
 
@@ -144,12 +148,10 @@ int main(int argc , char *argv[])
     return 0;
 }
  
-/*
- * This will handle connection for each client
- * */
+/* This will handle connection for each client */
 void *connection_handler(void *socket_desc)
 {
-    //Get the socket descriptor
+    /* Get the socket descriptor */
     int sock = *(int*)socket_desc;
     int read_size;
     char filename[100];
@@ -160,20 +162,27 @@ void *connection_handler(void *socket_desc)
     {
 	client_message[read_size] = '\0';
 
+
+	/* If we have a CPU intesive request */
 	if(strlen(client_message) < 5) 
 	{	
 		int matrix_size = atoi(client_message);
 
+		/* Launch the load */
 		matrixMultiplication(matrix_size);
 
+		/* Write an ACK response */
 		write(sock , client_message , strlen(client_message));
 		
 		memset(client_message, 0, 4096);
 
+		/* Close the connection */
 		shutdown(sock, SHUT_RDWR);
 	}
+	/* If we have a I/O intensive request */
 	else 			 	
 	{
+		/* Open the requested file */
 		strcpy(filename, "Content/");
 		strcat(filename, client_message);
 
@@ -181,7 +190,8 @@ void *connection_handler(void *socket_desc)
 		int read_bytes = 0;
 	
 		char buffer[100];
-
+		
+		/* Send it to the client */
 		while( (read_bytes = read(file_fd, buffer, 100)) > 0 )
 		{
 			write(sock , buffer , read_bytes);
@@ -191,6 +201,7 @@ void *connection_handler(void *socket_desc)
 
 		close(file_fd);
 
+		/* Close the connection */
 		shutdown(sock, SHUT_RDWR);
 	}
     }

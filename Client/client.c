@@ -54,9 +54,6 @@ void *connection_handler(void *workload)
 	socket_file_descriptor = socket(AF_INET, SOCK_STREAM, protoent->p_proto);
 
 
-	//setsockopt(socket_file_descriptor, SOL_SOCKET, SO_SNDBUF, (int[]){10}, sizeof(int));
-
-
 	if (socket_file_descriptor == -1) {
 		perror("socket");
 		exit(EXIT_FAILURE);
@@ -137,40 +134,130 @@ void *connection_handler(void *workload)
   	close(socket_file_descriptor);
 }
 
+char *io_workloads[] = {
+
+"test_file1.html",
+"test_file2.html",
+"test_file3.html",
+"test_file4.html",
+"test_file5.html",
+"test_file6.html",
+"test_file7.html",
+"test_file8.html",
+"test_file9.html",
+"test_file10.html",
+"test_file11.html",
+"test_file12.html",
+"test_file13.html",
+"test_file14.html",
+"test_file15.html",
+"test_file16.html",
+"test_file17.html",
+"test_file18.html",
+"test_file19.html",
+"test_file20.html",
+"test_file21.html",
+"test_file22.html",
+"test_file23.html",
+"test_file24.html",
+"test_file25.html",
+"test_file26.html",
+"test_file27.html",
+"test_file28.html",
+"test_file29.html",
+"test_file30.html",
+"test_file31.html",
+"test_file32.html",
+"test_file33.html",
+"test_file34.html",
+"test_file35.html",
+"test_file36.html",
+"test_file37.html",
+"test_file38.html",
+"test_file39.html",
+"test_file40.html",
+"test_file41.html",
+"test_file42.html",
+"test_file43.html",
+"test_file44.html",
+"test_file45.html",
+"test_file46.html",
+"test_file47.html",
+"test_file48.html",
+"test_file49.html",
+"test_file50.html",
+"test_file51.html",
+"test_file52.html",
+"test_file53.html",
+"test_file54.html",
+"test_file55.html",
+"test_file56.html",
+"test_file57.html",
+"test_file58.html",
+"test_file59.html",
+"test_file60.html",
+"test_file61.html",
+"test_file62.html",
+"test_file63.html",
+"test_file64.html",
+"test_file65.html",
+"test_file66.html",
+"test_file67.html",
+"test_file68.html",
+"test_file69.html",
+"test_file70.html",
+"test_file71.html",
+"test_file72.html",
+"test_file73.html",
+"test_file74.html",
+"test_file75.html",
+"test_file76.html",
+"test_file77.html",
+"test_file78.html",
+"test_file79.html",
+"test_file80.html",
+"test_file81.html",
+"test_file82.html",
+"test_file83.html",
+"test_file84.html",
+"test_file85.html",
+"test_file86.html",
+"test_file87.html",
+"test_file88.html",
+"test_file89.html",
+"test_file90.html",
+"test_file91.html",
+"test_file92.html",
+"test_file93.html",
+"test_file94.html",
+"test_file95.html",
+"test_file96.html",
+"test_file97.html",
+"test_file98.html",
+"test_file99.html",
+"test_file100.html",
+
+};
+
 int main(int argc, char** argv) 
 {
     int i = 0;
     int socket_desc , client_sock;
     char req[] = "0";
 
-    char *cpu_workloads[] = {"1000", "1000", "1000", "1500", "1500", "1500", "1500", "1500"};
-
-    char *io_workloads[] = {"test_file1.html", "test_file2.html", "test_file3.html", "test_file4.html", "test_file5.html"};
-
-    /*char *io_workloads[101];
-
-    char base_file_name[] = "test_file";
-
-    char number[12];
-
-    for(i = 1; i <= 100; i++)
-    {
-	io_workloads[i] = (char*)malloc(50 * sizeof(char));
-	strcpy(io_workloads[i], base_file_name);
-	sprintf(number, "%d", i);
-	strcat(io_workloads[i], number);
-	strcat(io_workloads[i], ".html");
-    }*/
+    char *cpu_workloads[] = {"1000", "1000", "1000", "1000", "1500", "1500", "1500", "1500"};
 
     pthread_t thread_id;
 
-    for(i = 0; i < 2; i++)
+    for(i = 0; i < 4; i++)
     {
-	    if( pthread_create( &thread_id , NULL ,  connection_handler , (void*)(io_workloads[i])) < 0)
+	    if( pthread_create( &thread_id , NULL ,  connection_handler , (void*)(cpu_workloads[i])) < 0)
 	    {
 		  perror("could not create thread");
 		  return 1;
 	    }
+
+	    sleep(3);
     }
 
     printf("Client generator: awaiting termination\n");

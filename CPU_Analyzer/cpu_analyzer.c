@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <time.h>
 
 #define MAX_BUF 1024
 
@@ -39,6 +40,13 @@ int main(void)
     FILE *fp;
     char dump[50];
 
+
+    time_t timer;
+    char buffer[26];
+    struct tm* tm_info;
+
+    
+    
     parallel_clients = 0;
 
     pthread_t thread_id;
@@ -60,8 +68,12 @@ int main(void)
         fscanf(fp,"%*s %Lf %Lf %Lf %Lf",&b[0],&b[1],&b[2],&b[3]);
         fclose(fp);
 
+	time(&timer);
+        tm_info = localtime(&timer);
+        strftime(buffer, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+
         loadavg = ((b[0]+b[1]+b[2]) - (a[0]+a[1]+a[2])) / ((b[0]+b[1]+b[2]+b[3]) - (a[0]+a[1]+a[2]+a[3]));
-        printf("CPU usage (percent) : %Lf ---- Parallel clients: %d \n",loadavg * 100, parallel_clients);
+        printf("CPU usage (percent) : %Lf -- Parallel clients: %d -- Time: %s\n",loadavg * 100, parallel_clients, buffer);
     }
 
     return(0);

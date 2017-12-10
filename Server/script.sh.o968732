@@ -1,0 +1,19 @@
+Socket created
+bind done
+Waiting for incoming connections...
+Waiting for incoming connections...
+[MASTER] IP Address: 172.16.10.1
+[SLAVE] IP Address: 172.16.10.4
+[SLAVE], waiting for data from the master. Slave rank: 1
+[MASTER] on slave dispatcher
+[MASTER] sending 1500 to the slave: 1
+[MASTER] on slave dispatcher
+[MASTER] sending 1500 to the slave: 1
+[MASTER] on slave dispatcher
+[MASTER] sending 1500 to the slave: 1
+[MASTER] on slave dispatcher
+[MASTER] sending 1500 to the slave: 1
+[MASTER] on slave dispatcher
+[MASTER] sending 1500 to the slave: 1
+[MASTER] on slave dispatcher
+[MASTER] sending 1500 to the slave: 1

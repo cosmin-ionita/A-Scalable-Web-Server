@@ -29,7 +29,7 @@ void *connection_handler(void *workload)
 	char request[MAX_REQUEST_LEN];
 
 	struct protoent *protoent;
-	char *hostname = "localhost";
+	char *hostname = "172.16.10.1";
 
 	in_addr_t in_addr;
 
@@ -245,11 +245,11 @@ int main(int argc, char** argv)
     int socket_desc , client_sock;
     char req[] = "0";
 
-    char *cpu_workloads[] = {"1000", "1000", "1000", "1000", "1500", "1500", "1500", "1500"};
+    char *cpu_workloads[] = {"1500", "1500", "1500", "1500", "1500", "1500", "1500", "1500", "1500", "1500", "1500", "1500", "1500"};
 
     pthread_t thread_id;
 
-    for(i = 0; i < 4; i++)
+    for(i = 0; i < 13; i++)
     {
 	    if( pthread_create( &thread_id , NULL ,  connection_handler , (void*)(cpu_workloads[i])) < 0)
 	    {
@@ -257,7 +257,7 @@ int main(int argc, char** argv)
 		  return 1;
 	    }
 
-	    sleep(3);
+	    sleep(2);
     }
 
     printf("Client generator: awaiting termination\n");
